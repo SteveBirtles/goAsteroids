@@ -1,27 +1,39 @@
 package main
 
 import (
-	_ "image/png"
-	"github.com/faiface/pixel/pixelgl"
-	"github.com/faiface/pixel"
-	"golang.org/x/image/colornames"
 	"fmt"
-	"time"
+	"github.com/faiface/pixel"
+	"github.com/faiface/pixel/pixelgl"
+	"golang.org/x/image/colornames"
 	"image"
-	"os"
+	_ "image/png"
 	"math"
+	"math/rand"
+	"os"
+	"time"
 )
 
 const screenWidth = 1024
 const screenHeight = 768
 
+type entity struct {
+	x      float64
+	y      float64
+	dx     float64
+	dy     float64
+	angle  float64
+	scale  float64
+	sprite *pixel.Sprite
+}
+
 var (
-	windowTitlePrefix   = "Go Asteroids"
-	frames                                    = 0
-	second                                    = time.Tick(time.Second)
+	windowTitlePrefix = "Go Asteroids"
+	frames            = 0
+	second            = time.Tick(time.Second)
 	window            *pixelgl.Window
-	shipSprite        *pixel.Sprite
-	frameLength		float64
+	ship              entity
+	asteroids         []entity
+	frameLength       float64
 )
 
 func loadImageFile(path string) (image.Image, error) {
@@ -56,9 +68,55 @@ func initiate() {
 		panic(initError)
 	}
 
+	asteroidImage, initError := loadImageFile("asteroid.png")
+	if initError != nil {
+		panic(initError)
+	}
+
 	shipPic := pixel.PictureDataFromImage(shipImage)
 
-	shipSprite = pixel.NewSprite(shipPic, shipPic.Bounds())
+	ship = entity{
+		x:      float64(screenWidth / 2),
+		y:      float64(screenHeight / 2),
+		dx:     0,
+		dy:     0,
+		angle:  0.0,
+		sprite: pixel.NewSprite(shipPic, shipPic.Bounds()),
+		scale:  0.2,
+	}
+
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	asteroidPic := pixel.PictureDataFromImage(asteroidImage)
+
+	asteroids = make([]entity, 10)
+
+	for i := 0; i < 10; i++ {
+
+		var x, y float64
+
+	outer:
+		for {
+			x = r.Float64() * screenWidth
+			y = r.Float64() * screenHeight
+			for j := 0; j < i; j++ {
+				if math.Sqrt(math.Pow(x-asteroids[j].x, 2)+math.Pow(y-asteroids[j].y, 2)) < 60 {
+					continue outer
+				}
+			}
+			break
+		}
+
+		asteroids[i] = entity{
+			x:      x,
+			y:      y,
+			dx:     r.Float64()*100 - 50,
+			dy:     r.Float64()*100 - 50,
+			angle:  r.Float64() * 2 * math.Pi,
+			sprite: pixel.NewSprite(asteroidPic, asteroidPic.Bounds()),
+			scale:  0.1,
+		}
+	}
 
 }
 
@@ -66,39 +124,50 @@ func game() {
 
 	initiate()
 
-	x, y, angle := float64(screenWidth/2), float64(screenHeight/2), 0.0
-
 	for !window.Closed() {
 
 		frameStart := time.Now()
 
+		ship.dx, ship.dy = 0.0, 0.0
+
 		if window.Pressed(pixelgl.KeyLeft) {
-			angle += 2 * frameLength
+			ship.angle += 2 * frameLength
 		}
 		if window.Pressed(pixelgl.KeyRight) {
-			angle -= 2 * frameLength
+			ship.angle -= 2 * frameLength
 		}
 		if window.Pressed(pixelgl.KeyW) {
-			x -= 512 * frameLength * math.Sin(angle)
-			y += 512 * frameLength * math.Cos(angle)
+			ship.dx -= 512 * math.Sin(ship.angle)
+			ship.dy += 512 * math.Cos(ship.angle)
 		}
 		if window.Pressed(pixelgl.KeyS) {
-			x += 512 * frameLength * math.Sin(angle)
-			y -= 512 * frameLength * math.Cos(angle)
+			ship.dx += 512 * math.Sin(ship.angle)
+			ship.dy -= 512 * math.Cos(ship.angle)
 		}
 		if window.Pressed(pixelgl.KeyA) {
-			x -= 512 * frameLength * math.Cos(angle)
-			y -= 512 * frameLength * math.Sin(angle)
+			ship.dx -= 512 * math.Cos(ship.angle)
+			ship.dy -= 512 * math.Sin(ship.angle)
 		}
 		if window.Pressed(pixelgl.KeyD) {
-			x += 512 * frameLength * math.Cos(angle)
-			y += 512 * frameLength * math.Sin(angle)
+			ship.dx += 512 * math.Cos(ship.angle)
+			ship.dy += 512 * math.Sin(ship.angle)
 		}
 
-		matrix := pixel.IM.Rotated(pixel.ZV, angle).Scaled(pixel.ZV, 0.2).Moved(pixel.Vec{X: x, Y: y})
-
 		window.Clear(colornames.Black)
-		shipSprite.Draw(window, matrix)
+
+		for i, a := range asteroids {
+
+			asteroids[i].x += a.dx * frameLength
+			asteroids[i].y += a.dy * frameLength
+			asteroidMatrix := pixel.IM.Rotated(pixel.ZV, a.angle).Scaled(pixel.ZV, a.scale).Moved(pixel.Vec{X: a.x, Y: a.y})
+			a.sprite.Draw(window, asteroidMatrix)
+		}
+
+		ship.x += ship.dx * frameLength
+		ship.y += ship.dy * frameLength
+
+		shipMatrix := pixel.IM.Rotated(pixel.ZV, ship.angle).Scaled(pixel.ZV, ship.scale).Moved(pixel.Vec{X: ship.x, Y: ship.y})
+		ship.sprite.Draw(window, shipMatrix)
 		window.Update()
 
 		frames++
@@ -119,4 +188,3 @@ func main() {
 	pixelgl.Run(game)
 
 }
-
