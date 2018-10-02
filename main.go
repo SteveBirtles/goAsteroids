@@ -16,6 +16,8 @@ import (
 const screenWidth = 1024
 const screenHeight = 768
 
+const initialAsteroids = 75
+
 type entity struct {
 	x      float64
 	y      float64
@@ -24,6 +26,12 @@ type entity struct {
 	angle  float64
 	scale  float64
 	sprite *pixel.Sprite
+}
+
+func (e entity) collidesWith(x, y, r float64) bool {
+
+	return math.Sqrt(math.Pow(x-e.x, 2)+math.Pow(y-e.y, 2)) < r
+
 }
 
 var (
@@ -89,22 +97,22 @@ func initiate() {
 
 	asteroidPic := pixel.PictureDataFromImage(asteroidImage)
 
-	asteroids = make([]entity, 10)
+	asteroids = make([]entity, initialAsteroids)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < initialAsteroids; i++ {
 
 		var x, y float64
 
-	outer:
-		for {
+		okPosition := false
+		for !okPosition {
 			x = r.Float64() * screenWidth
 			y = r.Float64() * screenHeight
+			okPosition = true
 			for j := 0; j < i; j++ {
-				if math.Sqrt(math.Pow(x-asteroids[j].x, 2)+math.Pow(y-asteroids[j].y, 2)) < 60 {
-					continue outer
+				if asteroids[j].collidesWith(x, y, 80) {
+					okPosition = false
 				}
 			}
-			break
 		}
 
 		asteroids[i] = entity{
@@ -159,6 +167,20 @@ func game() {
 
 			asteroids[i].x += a.dx * frameLength
 			asteroids[i].y += a.dy * frameLength
+
+			if asteroids[i].x < -50 {
+				asteroids[i].x += screenWidth + 100
+			}
+			if asteroids[i].y < -50 {
+				asteroids[i].y += screenHeight + 100
+			}
+			if asteroids[i].x > screenWidth+50 {
+				asteroids[i].x -= screenWidth + 100
+			}
+			if asteroids[i].y > screenHeight+50 {
+				asteroids[i].y -= screenHeight + 100
+			}
+
 			asteroidMatrix := pixel.IM.Rotated(pixel.ZV, a.angle).Scaled(pixel.ZV, a.scale).Moved(pixel.Vec{X: a.x, Y: a.y})
 			a.sprite.Draw(window, asteroidMatrix)
 		}
