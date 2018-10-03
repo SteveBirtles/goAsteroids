@@ -46,10 +46,6 @@ func (e entity) separation(e2 entity) float64 {
 
 func (e entity) collidesWith(e2 entity) bool {
 
-	if e.etype == Projectile || e2.etype == Projectile {
-			return false
-	}
-
 	return e.separation(e2) < e.radius + e2.radius
 
 }
@@ -217,9 +213,23 @@ func game() {
 		}
 
 
-		for i := range es {
+		for i := 0; i < len(es); {
+
+			remove := false
+
 			for j := 0; j < i; j++ {
+
 				if es[i].collidesWith(es[j]) {
+
+					if es[i].etype == Projectile {
+
+						if es[j].etype == Asteroid {
+							remove = true
+							break
+						} else {
+							continue
+						}
+					}
 
 					d := es[i].separation(es[j])
 					dx := es[i].x - es[j].x
@@ -228,13 +238,22 @@ func game() {
 					v1 := es[i].velocity()
 					v2 := es[j].velocity()
 
-					es[i].dx = v2 * dx/d
-					es[i].dy = v2 * dy/d
+					es[i].dx = v2 * dx / d
+					es[i].dy = v2 * dy / d
 
-					es[j].dx = -v1 * dx/d
-					es[j].dy = -v1 * dy/d
+					es[j].dx = -v1 * dx / d
+					es[j].dy = -v1 * dy / d
+
+					break
 
 				}
+
+			}
+
+			if remove {
+				es = append(es[:i], es[i+1:]...)
+			} else {
+				i++
 			}
 		}
 
