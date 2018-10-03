@@ -16,21 +16,47 @@ import (
 const screenWidth = 1024
 const screenHeight = 768
 
-const initialAsteroids = 75
+const initialAsteroids = 20
+
+type etype int
+
+const (
+	Ship etype = 1
+	Asteroid etype = 2
+	Projectile etype = 3
+)
 
 type entity struct {
+	etype
 	x      float64
 	y      float64
 	dx     float64
 	dy     float64
+	radius float64
 	angle  float64
 	scale  float64
 	sprite *pixel.Sprite
 }
 
-func (e entity) collidesWith(x, y, r float64) bool {
+func (e entity) separation(e2 entity) float64 {
 
-	return math.Sqrt(math.Pow(x-e.x, 2)+math.Pow(y-e.y, 2)) < r
+	return math.Sqrt(math.Pow(e.x - e2.x, 2) + math.Pow(e.y - e2.y, 2))
+
+}
+
+func (e entity) collidesWith(e2 entity) bool {
+
+	if e.etype == Projectile || e2.etype == Projectile {
+			return false
+	}
+
+	return e.separation(e2) < e.radius + e2.radius
+
+}
+
+func (e entity) velocity() float64 {
+
+	return math.Sqrt(math.Pow(e.dx, 2) + math.Pow(e.dy, 2))
 
 }
 
@@ -39,10 +65,13 @@ var (
 	frames            = 0
 	second            = time.Tick(time.Second)
 	window            *pixelgl.Window
-	ship              entity
-	asteroids         []entity
+	es                []entity
 	frameLength       float64
+	shipPic			  pixel.Picture
+	asteroidPic		  pixel.Picture
+	fireballPic		  pixel.Picture
 )
+
 
 func loadImageFile(path string) (image.Image, error) {
 	file, err := os.Open(path)
@@ -75,31 +104,38 @@ func initiate() {
 	if initError != nil {
 		panic(initError)
 	}
+	shipPic = pixel.PictureDataFromImage(shipImage)
 
 	asteroidImage, initError := loadImageFile("asteroid.png")
 	if initError != nil {
 		panic(initError)
 	}
+	asteroidPic = pixel.PictureDataFromImage(asteroidImage)
 
-	shipPic := pixel.PictureDataFromImage(shipImage)
+	fireballImage, initError := loadImageFile("fireball.png")
+	if initError != nil {
+		panic(initError)
+	}
 
-	ship = entity{
+	fireballPic = pixel.PictureDataFromImage(fireballImage)
+
+	es = make([]entity, initialAsteroids+1)
+
+	es[0] = entity{
+		etype:  Ship,
 		x:      float64(screenWidth / 2),
 		y:      float64(screenHeight / 2),
 		dx:     0,
 		dy:     0,
 		angle:  0.0,
+		radius: 30,
 		sprite: pixel.NewSprite(shipPic, shipPic.Bounds()),
 		scale:  0.2,
 	}
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	asteroidPic := pixel.PictureDataFromImage(asteroidImage)
-
-	asteroids = make([]entity, initialAsteroids)
-
-	for i := 0; i < initialAsteroids; i++ {
+	for i := 1; i <= initialAsteroids; i++ {
 
 		var x, y float64
 
@@ -109,13 +145,14 @@ func initiate() {
 			y = r.Float64() * screenHeight
 			okPosition = true
 			for j := 0; j < i; j++ {
-				if asteroids[j].collidesWith(x, y, 80) {
+				if es[i].collidesWith(es[j]) {
 					okPosition = false
 				}
 			}
 		}
 
-		asteroids[i] = entity{
+		es[i] = entity{
+			etype: Asteroid,
 			x:      x,
 			y:      y,
 			dx:     r.Float64()*100 - 50,
@@ -123,6 +160,7 @@ func initiate() {
 			angle:  r.Float64() * 2 * math.Pi,
 			sprite: pixel.NewSprite(asteroidPic, asteroidPic.Bounds()),
 			scale:  0.1,
+			radius: 45,
 		}
 	}
 
@@ -136,60 +174,121 @@ func game() {
 
 		frameStart := time.Now()
 
-		ship.dx, ship.dy = 0.0, 0.0
-
 		if window.Pressed(pixelgl.KeyLeft) {
-			ship.angle += 2 * frameLength
+			es[0].angle += 2 * frameLength
 		}
 		if window.Pressed(pixelgl.KeyRight) {
-			ship.angle -= 2 * frameLength
+			es[0].angle -= 2 * frameLength
 		}
 		if window.Pressed(pixelgl.KeyW) {
-			ship.dx -= 512 * math.Sin(ship.angle)
-			ship.dy += 512 * math.Cos(ship.angle)
+			es[0].dx -= 25 * math.Sin(es[0].angle)
+			es[0].dy += 25 * math.Cos(es[0].angle)
 		}
 		if window.Pressed(pixelgl.KeyS) {
-			ship.dx += 512 * math.Sin(ship.angle)
-			ship.dy -= 512 * math.Cos(ship.angle)
+			es[0].dx += 25 * math.Sin(es[0].angle)
+			es[0].dy -= 25 * math.Cos(es[0].angle)
 		}
 		if window.Pressed(pixelgl.KeyA) {
-			ship.dx -= 512 * math.Cos(ship.angle)
-			ship.dy -= 512 * math.Sin(ship.angle)
+			es[0].dx -= 25 * math.Cos(es[0].angle)
+			es[0].dy -= 25 * math.Sin(es[0].angle)
 		}
 		if window.Pressed(pixelgl.KeyD) {
-			ship.dx += 512 * math.Cos(ship.angle)
-			ship.dy += 512 * math.Sin(ship.angle)
+			es[0].dx += 25 * math.Cos(es[0].angle)
+			es[0].dy += 25 * math.Sin(es[0].angle)
 		}
+
+		if window.Pressed(pixelgl.KeySpace) {
+
+			projDx := -math.Sin(es[0].angle)
+			projDy := math.Cos(es[0].angle)
+
+			es = append(es, entity{
+				etype: Projectile,
+				x: es[0].x + es[0].radius * projDx,
+				y: es[0].y + es[0].radius * projDy,
+				dx: 500 * projDx,
+				dy: 500 * projDy,
+				angle:  es[0].angle,
+				radius: 5,
+				sprite: pixel.NewSprite(fireballPic, fireballPic.Bounds()),
+				scale:  0.05,
+			})
+
+		}
+
+
+		for i := range es {
+			for j := 0; j < i; j++ {
+				if es[i].collidesWith(es[j]) {
+
+					d := es[i].separation(es[j])
+					dx := es[i].x - es[j].x
+					dy := es[i].y - es[j].y
+
+					v1 := es[i].velocity()
+					v2 := es[j].velocity()
+
+					es[i].dx = v2 * dx/d
+					es[i].dy = v2 * dy/d
+
+					es[j].dx = -v1 * dx/d
+					es[j].dy = -v1 * dy/d
+
+				}
+			}
+		}
+
+
+		for i := range es {
+
+			es[i].x += es[i].dx * frameLength
+			es[i].y += es[i].dy * frameLength
+
+			if es[i].x < -50 {
+				es[i].x += screenWidth + 100
+			}
+			if es[i].y < -50 {
+				es[i].y += screenHeight + 100
+			}
+			if es[i].x > screenWidth+50 {
+				es[i].x -= screenWidth + 100
+			}
+			if es[i].y > screenHeight+50 {
+				es[i].y -= screenHeight + 100
+			}
+
+			v := es[i].velocity()
+			if es[i].etype == Ship {
+				if v > 256 {
+					es[i].dx *= 256 / v
+					es[i].dy *= 256 / v
+				} else {
+					es[i].dx *= 1 - frameLength
+					es[i].dy *= 1 - frameLength
+				}
+			} else if es[i].etype == Asteroid {
+				if v > 128 {
+					es[i].dx *= 128 / v
+					es[i].dy *= 128 / v
+				}
+			}
+		}
+
+
 
 		window.Clear(colornames.Black)
 
-		for i, a := range asteroids {
+		for i := range es {
 
-			asteroids[i].x += a.dx * frameLength
-			asteroids[i].y += a.dy * frameLength
+			matrix := pixel.IM.
+				Rotated(pixel.ZV, es[i].angle).
+				Scaled(pixel.ZV, es[i].scale).
+				Moved(pixel.Vec{X: es[i].x, Y: es[i].y})
 
-			if asteroids[i].x < -50 {
-				asteroids[i].x += screenWidth + 100
-			}
-			if asteroids[i].y < -50 {
-				asteroids[i].y += screenHeight + 100
-			}
-			if asteroids[i].x > screenWidth+50 {
-				asteroids[i].x -= screenWidth + 100
-			}
-			if asteroids[i].y > screenHeight+50 {
-				asteroids[i].y -= screenHeight + 100
-			}
+			es[i].sprite.Draw(window, matrix)
 
-			asteroidMatrix := pixel.IM.Rotated(pixel.ZV, a.angle).Scaled(pixel.ZV, a.scale).Moved(pixel.Vec{X: a.x, Y: a.y})
-			a.sprite.Draw(window, asteroidMatrix)
 		}
 
-		ship.x += ship.dx * frameLength
-		ship.y += ship.dy * frameLength
-
-		shipMatrix := pixel.IM.Rotated(pixel.ZV, ship.angle).Scaled(pixel.ZV, ship.scale).Moved(pixel.Vec{X: ship.x, Y: ship.y})
-		ship.sprite.Draw(window, shipMatrix)
 		window.Update()
 
 		frames++
