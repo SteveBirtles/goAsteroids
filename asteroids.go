@@ -16,8 +16,6 @@ import (
 const screenWidth = 1024
 const screenHeight = 768
 
-const initialAsteroids = 20
-
 type etype int
 
 const (
@@ -66,6 +64,7 @@ var (
 	shipPic           pixel.Picture
 	asteroidPic       pixel.Picture
 	fireballPic       pixel.Picture
+	lastFire          time.Time
 )
 
 func loadImageFile(path string) (image.Image, error) {
@@ -111,12 +110,9 @@ func initiate() {
 	if initError != nil {
 		panic(initError)
 	}
-
 	fireballPic = pixel.PictureDataFromImage(fireballImage)
 
-	es = make([]entity, initialAsteroids+1)
-
-	es[0] = entity{
+	es = []entity{{
 		etype:  Ship,
 		x:      float64(screenWidth / 2),
 		y:      float64(screenHeight / 2),
@@ -126,30 +122,16 @@ func initiate() {
 		radius: 30,
 		sprite: pixel.NewSprite(shipPic, shipPic.Bounds()),
 		scale:  0.2,
-	}
+	}}
 
 	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	for i := 1; i <= initialAsteroids; i++ {
+	for i := 1; i <= 20; i++ {
 
-		var x, y float64
-
-		okPosition := false
-		for !okPosition {
-			x = r.Float64() * screenWidth
-			y = r.Float64() * screenHeight
-			okPosition = true
-			for j := 0; j < i; j++ {
-				if es[i].collidesWith(es[j]) {
-					okPosition = false
-				}
-			}
-		}
-
-		es[i] = entity{
+		e := entity{
 			etype:  Asteroid,
-			x:      x,
-			y:      y,
+			x:      r.Float64() * screenWidth,
+			y:      r.Float64() * screenHeight,
 			dx:     r.Float64()*100 - 50,
 			dy:     r.Float64()*100 - 50,
 			angle:  r.Float64() * 2 * math.Pi,
@@ -157,6 +139,24 @@ func initiate() {
 			scale:  0.1,
 			radius: 45,
 		}
+
+		okPosition := true
+		for {
+			okPosition = true
+			for j := 0; j < i; j++ {
+				if e.collidesWith(es[j]) {
+					okPosition = false
+				}
+			}
+			if okPosition {
+				break
+			}
+			e.x = r.Float64() * screenWidth
+			e.y = r.Float64() * screenHeight
+		}
+
+		es = append(es, e)
+
 	}
 
 }
@@ -194,26 +194,32 @@ func game() {
 
 		if window.Pressed(pixelgl.KeySpace) {
 
-			projDx := -math.Sin(es[0].angle)
-			projDy := math.Cos(es[0].angle)
+			if time.Since(lastFire).Seconds() > 0.2 {
 
-			es = append(es, entity{
-				etype:  Projectile,
-				x:      es[0].x + es[0].radius*projDx,
-				y:      es[0].y + es[0].radius*projDy,
-				dx:     500 * projDx,
-				dy:     500 * projDy,
-				angle:  es[0].angle,
-				radius: 5,
-				sprite: pixel.NewSprite(fireballPic, fireballPic.Bounds()),
-				scale:  0.05,
-			})
+				lastFire = time.Now()
+
+				projDx := -math.Sin(es[0].angle)
+				projDy := math.Cos(es[0].angle)
+
+				es = append(es, entity{
+					etype:  Projectile,
+					x:      es[0].x + es[0].radius*projDx,
+					y:      es[0].y + es[0].radius*projDy,
+					dx:     500 * projDx,
+					dy:     500 * projDy,
+					angle:  es[0].angle,
+					radius: 5,
+					sprite: pixel.NewSprite(fireballPic, fireballPic.Bounds()),
+					scale:  0.05,
+				})
+
+			}
 
 		}
 
-		for i := 0; i < len(es); {
+		for i := 0; i < len(es); i++ {
 
-			remove := false
+			//remove := false
 
 			for j := 0; j < i; j++ {
 
@@ -221,12 +227,11 @@ func game() {
 
 					if es[i].etype == Projectile {
 
-						if es[j].etype == Asteroid {
-							remove = true
-							break
-						} else {
-							continue
-						}
+						//if es[j].etype != Asteroid {
+						continue
+						//}// else {
+						//remove = true
+						//}
 					}
 
 					d := es[i].separation(es[j])
@@ -248,11 +253,11 @@ func game() {
 
 			}
 
-			if remove {
-				es = append(es[:i], es[i+1:]...)
-			} else {
-				i++
-			}
+			//if remove {
+			//				es = append(es[:i], es[i+1:]...)
+			//} else {
+			//				i++
+			//}
 		}
 
 		for i := range es {
@@ -288,6 +293,7 @@ func game() {
 					es[i].dy *= 128 / v
 				}
 			}
+
 		}
 
 		window.Clear(colornames.Black)

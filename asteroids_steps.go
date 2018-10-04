@@ -7,8 +7,6 @@ import (
 	"golang.org/x/image/colornames"
 	"image"
 	_ "image/png"
-	"math"
-	"math/rand"
 	"os"
 	"time"
 )
@@ -16,17 +14,17 @@ import (
 const screenWidth = 1024
 const screenHeight = 768
 
-const initialAsteroids = 20
+/* 1 */
 
-type etype int
+/*type etype int
 
 const (
-	Ship       etype = 1
-	Asteroid   etype = 2
+	Ship etype = 1
+	Asteroid etype = 2
 	Projectile etype = 3
-)
+)*/
 
-type entity struct {
+/*type entity struct {
 	etype
 	x      float64
 	y      float64
@@ -36,25 +34,31 @@ type entity struct {
 	angle  float64
 	scale  float64
 	sprite *pixel.Sprite
-}
+}*/
 
-func (e entity) separation(e2 entity) float64 {
+/* 11 */
 
-	return math.Sqrt(math.Pow(e.x-e2.x, 2) + math.Pow(e.y-e2.y, 2))
+/*func (e entity) separation(e2 entity) float64 {
 
-}
+	return math.Sqrt(math.Pow(e.x - e2.x, 2) + math.Pow(e.y - e2.y, 2))
 
-func (e entity) collidesWith(e2 entity) bool {
+}*/
 
-	return e.separation(e2) < e.radius+e2.radius
+/* also 11 */
 
-}
+/*func (e entity) collidesWith(e2 entity) bool {
 
-func (e entity) velocity() float64 {
+	return e.separation(e2) < e.radius + e2.radius
+
+}*/
+
+/* 7 */
+
+/*func (e entity) velocity() float64 {
 
 	return math.Sqrt(math.Pow(e.dx, 2) + math.Pow(e.dy, 2))
 
-}
+}*/
 
 var (
 	windowTitlePrefix = "Go Asteroids"
@@ -62,10 +66,11 @@ var (
 	second            = time.Tick(time.Second)
 	window            *pixelgl.Window
 	frameLength       float64
-	es                []entity
-	shipPic           pixel.Picture
-	asteroidPic       pixel.Picture
-	fireballPic       pixel.Picture
+	//es                []entity		/* 3 */
+	//shipPic			  pixel.Picture  /* 2 */
+	//asteroidPic		  pixel.Picture	 /* 9 */
+	//fireballPic		  pixel.Picture  /* 14 */
+	//lastFire		  time.Time			/* 15 */
 )
 
 func loadImageFile(path string) (image.Image, error) {
@@ -95,28 +100,33 @@ func initiate() {
 		panic(initError)
 	}
 
-	shipImage, initError := loadImageFile("ship.png")
+	/* 2 */
+
+	/*shipImage, initError := loadImageFile("ship.png")
 	if initError != nil {
 		panic(initError)
 	}
-	shipPic = pixel.PictureDataFromImage(shipImage)
+	shipPic = pixel.PictureDataFromImage(shipImage)*/
 
-	asteroidImage, initError := loadImageFile("asteroid.png")
+	/* 9 */
+
+	/*asteroidImage, initError := loadImageFile("asteroid.png")
 	if initError != nil {
 		panic(initError)
 	}
-	asteroidPic = pixel.PictureDataFromImage(asteroidImage)
+	asteroidPic = pixel.PictureDataFromImage(asteroidImage)*/
 
-	fireballImage, initError := loadImageFile("fireball.png")
+	/* 14 */
+
+	/*fireballImage, initError := loadImageFile("fireball.png")
 	if initError != nil {
 		panic(initError)
 	}
+	fireballPic = pixel.PictureDataFromImage(fireballImage)*/
 
-	fireballPic = pixel.PictureDataFromImage(fireballImage)
+	/* 3 */
 
-	es = make([]entity, initialAsteroids+1)
-
-	es[0] = entity{
+	/*es = []entity{{
 		etype:  Ship,
 		x:      float64(screenWidth / 2),
 		y:      float64(screenHeight / 2),
@@ -126,30 +136,22 @@ func initiate() {
 		radius: 30,
 		sprite: pixel.NewSprite(shipPic, shipPic.Bounds()),
 		scale:  0.2,
-	}
+	}}*/
 
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	/* ----- end 3 */
+
+	/*r := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	/* 10
 
 	for i := 1; i <= initialAsteroids; i++ {
 
-		var x, y float64
+		/* 10
 
-		okPosition := false
-		for !okPosition {
-			x = r.Float64() * screenWidth
-			y = r.Float64() * screenHeight
-			okPosition = true
-			for j := 0; j < i; j++ {
-				if es[i].collidesWith(es[j]) {
-					okPosition = false
-				}
-			}
-		}
-
-		es[i] = entity{
-			etype:  Asteroid,
-			x:      x,
-			y:      y,
+		e := entity{
+			etype: Asteroid,
+			x:      r.Float64() * screenWidth,
+			y:      r.Float64() * screenHeight,
 			dx:     r.Float64()*100 - 50,
 			dy:     r.Float64()*100 - 50,
 			angle:  r.Float64() * 2 * math.Pi,
@@ -157,7 +159,32 @@ func initiate() {
 			scale:  0.1,
 			radius: 45,
 		}
-	}
+
+		/* 13
+
+		okPosition := true
+		for {
+			okPosition = true
+			for j := 0; j < i; j++ {
+				if e.collidesWith(es[j]) {
+					okPosition = false
+				}
+			}
+			if okPosition {
+				break
+			}
+			e.x = r.Float64() * screenWidth
+			e.y = r.Float64() * screenHeight
+		}
+
+
+		/* 10
+
+			es = append(es, e)
+
+
+
+	}*/
 
 }
 
@@ -169,7 +196,9 @@ func game() {
 
 		frameStart := time.Now()
 
-		if window.Pressed(pixelgl.KeyLeft) {
+		/* 5 */
+
+		/*if window.Pressed(pixelgl.KeyLeft) {
 			es[0].angle += 2 * frameLength
 		}
 		if window.Pressed(pixelgl.KeyRight) {
@@ -190,44 +219,62 @@ func game() {
 		if window.Pressed(pixelgl.KeyD) {
 			es[0].dx += 25 * math.Cos(es[0].angle)
 			es[0].dy += 25 * math.Sin(es[0].angle)
-		}
+		}*/
 
-		if window.Pressed(pixelgl.KeySpace) {
+		/* 15 */
+
+		/*if window.Pressed(pixelgl.KeySpace) {
+
+			if time.Since(lastFire).Seconds() > 0.2 {
+				lastFire = time.Now()
+
+				---/
 
 			projDx := -math.Sin(es[0].angle)
 			projDy := math.Cos(es[0].angle)
 
 			es = append(es, entity{
-				etype:  Projectile,
-				x:      es[0].x + es[0].radius*projDx,
-				y:      es[0].y + es[0].radius*projDy,
-				dx:     500 * projDx,
-				dy:     500 * projDy,
+				etype: Projectile,
+				x: es[0].x + es[0].radius * projDx,
+				y: es[0].y + es[0].radius * projDy,
+				dx: 500 * projDx,
+				dy: 500 * projDy,
 				angle:  es[0].angle,
 				radius: 5,
 				sprite: pixel.NewSprite(fireballPic, fireballPic.Bounds()),
 				scale:  0.05,
 			})
 
-		}
+		}*/
 
-		for i := 0; i < len(es); {
+		/* 11 */
 
-			remove := false
+		/*for i := 0; i < len(es); i++ {
+
+		/*--
+
+			/* 16 */
+
+		//remove := false
+
+		/* 11
 
 			for j := 0; j < i; j++ {
 
 				if es[i].collidesWith(es[j]) {
 
+				/* 16 ---
+
 					if es[i].etype == Projectile {
 
 						if es[j].etype == Asteroid {
 							remove = true
-							break
 						} else {
 							continue
 						}
 					}
+
+					/* 11
 
 					d := es[i].separation(es[j])
 					dx := es[i].x - es[j].x
@@ -248,14 +295,18 @@ func game() {
 
 			}
 
+			/* 16 ---
+
 			if remove {
 				es = append(es[:i], es[i+1:]...)
 			} else {
 				i++
 			}
-		}
+		}*/
 
-		for i := range es {
+		/* 6 */
+
+		/*for i := range es {
 
 			es[i].x += es[i].dx * frameLength
 			es[i].y += es[i].dy * frameLength
@@ -273,6 +324,8 @@ func game() {
 				es[i].y -= screenHeight + 100
 			}
 
+			/* 8 ----
+
 			v := es[i].velocity()
 			if es[i].etype == Ship {
 				if v > 256 {
@@ -282,17 +335,22 @@ func game() {
 					es[i].dx *= 1 - frameLength
 					es[i].dy *= 1 - frameLength
 				}
+
+			/* 12
+
 			} else if es[i].etype == Asteroid {
 				if v > 128 {
 					es[i].dx *= 128 / v
 					es[i].dy *= 128 / v
 				}
 			}
-		}
+		}*/
 
 		window.Clear(colornames.Black)
 
-		for i := range es {
+		/* 4 */
+
+		/*for i := range es {
 
 			matrix := pixel.IM.
 				Rotated(pixel.ZV, es[i].angle).
@@ -301,7 +359,7 @@ func game() {
 
 			es[i].sprite.Draw(window, matrix)
 
-		}
+		}*/
 
 		window.Update()
 
