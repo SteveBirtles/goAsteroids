@@ -237,7 +237,7 @@ func game() {
 						removeI = true
 						splitJ = j
 
-					} else if es[i].etype == Asteroid && es[j].etype == Asteroid {
+					} else {
 
 						d := es[i].separation(es[j])
 						dx := es[i].x - es[j].x
