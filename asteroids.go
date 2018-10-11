@@ -44,7 +44,7 @@ func (e entity) separation(e2 entity) float64 {
 
 func (e entity) collidesWith(e2 entity) bool {
 
-	return e.separation(e2) < e.radius+e2.radius
+	return e.separation(e2) <= e.radius+e2.radius
 
 }
 
@@ -208,7 +208,7 @@ func game() {
 					dx:     500 * projDx,
 					dy:     500 * projDy,
 					angle:  es[0].angle,
-					radius: 5,
+					radius: 10,
 					sprite: pixel.NewSprite(fireballPic, fireballPic.Bounds()),
 					scale:  0.05,
 				})
@@ -217,47 +217,96 @@ func game() {
 
 		}
 
-		for i := 0; i < len(es); i++ {
+		var newAsteroids []entity
 
-			//remove := false
+		for i := 0; i < len(es); {
 
-			for j := 0; j < i; j++ {
+			removeI := false
+			splitJ := 0
+
+			for j := 1; j < len(es); j++ {
+
+				if i == j || es[j].etype == Projectile && (i == 0 || es[i].etype == Asteroid) {
+					continue
+				}
 
 				if es[i].collidesWith(es[j]) {
 
-					if es[i].etype == Projectile {
+					if es[i].etype == Projectile && es[j].etype == Asteroid {
 
-						//if es[j].etype != Asteroid {
-						continue
-						//}// else {
-						//remove = true
-						//}
+						removeI = true
+						splitJ = j
+
+					} else if es[i].etype == Asteroid && es[j].etype == Asteroid {
+
+						d := es[i].separation(es[j])
+						dx := es[i].x - es[j].x
+						dy := es[i].y - es[j].y
+
+						v1 := es[i].velocity()
+						v2 := es[j].velocity()
+
+						es[i].dx = v2 * dx / d
+						es[i].dy = v2 * dy / d
+
+						es[j].dx = -v1 * dx / d
+						es[j].dy = -v1 * dy / d
 					}
 
-					d := es[i].separation(es[j])
-					dx := es[i].x - es[j].x
-					dy := es[i].y - es[j].y
-
-					v1 := es[i].velocity()
-					v2 := es[j].velocity()
-
-					es[i].dx = v2 * dx / d
-					es[i].dy = v2 * dy / d
-
-					es[j].dx = -v1 * dx / d
-					es[j].dy = -v1 * dy / d
-
-					break
+					continue
 
 				}
 
 			}
 
-			//if remove {
-			//				es = append(es[:i], es[i+1:]...)
-			//} else {
-			//				i++
-			//}
+			if removeI {
+
+				if es[splitJ].radius >= 20 {
+
+					v := es[i].velocity()
+					dx := es[i].dx / v
+					dy := es[i].dy / v
+
+					es[splitJ].dx = -dy * v * 2
+					es[splitJ].dy = dx * v * 2
+					es[splitJ].scale *= 0.75
+					es[splitJ].radius *= 0.75
+
+					newAsteroids = append(newAsteroids, entity{
+						etype:  Asteroid,
+						x:      es[splitJ].x,
+						y:      es[splitJ].y,
+						dx:     -es[splitJ].dx,
+						dy:     -es[splitJ].dy,
+						angle:  -es[splitJ].angle,
+						sprite: pixel.NewSprite(asteroidPic, asteroidPic.Bounds()),
+						scale:  es[splitJ].scale,
+						radius: es[splitJ].radius})
+
+				} else {
+
+					es[splitJ].radius = 0
+
+				}
+
+				es = append(es[:i], es[i+1:]...)
+
+			} else {
+
+				i++
+
+			}
+
+		}
+
+		es = append(es, newAsteroids...)
+
+		for i := 0; i < len(es); {
+			if es[i].etype == Asteroid && es[i].radius == 0 {
+				es = append(es[:i], es[i+1:]...)
+			} else {
+				i++
+			}
 		}
 
 		for i := range es {
